@@ -66,6 +66,14 @@ public:
 	/// responsible of cleaning up the husk
 	void nuke();
 
+	/***
+	 * the instance has been invalidated - it is no longer tracked by MultiMC for some reason,
+	 * but it has not necessarily been deleted.
+	 *
+	 * Happens when the instance folder changes to some other location, or the instance is removed by external means.
+	 */
+	void invalidate();
+
 	/// The instance's ID. The ID SHALL be determined by MMC internally. The ID IS guaranteed to
 	/// be unique.
 	virtual QString id() const;

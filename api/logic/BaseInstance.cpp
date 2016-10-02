@@ -74,6 +74,12 @@ void BaseInstance::iconUpdated(QString key)
 	}
 }
 
+void BaseInstance::invalidate()
+{
+	// TODO: actually do something here.
+	qDebug() << "Instance" << id() << "has been invalidated.";
+}
+
 void BaseInstance::nuke()
 {
 	FS::deletePath(instanceRoot());

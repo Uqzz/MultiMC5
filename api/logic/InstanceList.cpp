@@ -313,46 +313,143 @@ void InstanceList::loadGroupList(QMap<QString, QString> &groupMap)
 	}
 }
 
+using InstanceId = QString;
+using InstanceLocator = std::pair<InstancePtr, int>;
+
+static QMap<InstanceId, InstanceLocator> getIdMapping(const QList<InstancePtr> &list)
+{
+	QMap<InstanceId, InstanceLocator> out;
+	int i = 0;
+	for(auto & item: list)
+	{
+		auto id = item->id();
+		if(out.contains(id))
+		{
+			qWarning() << "Duplicate ID" << id << "in instance list";
+			throw 0;
+		}
+		out[id] = std::make_pair(item, i);
+		i++;
+	}
+	return out;
+}
+
+/**
+ * Returns the list of possibly viable instance IDs to probe further
+ */
+static QList<InstanceId> discoverInstances(QString instDir)
+{
+	QList<InstanceId> out;
+	QDirIterator iter(instDir, QDir::Dirs | QDir::NoDot | QDir::NoDotDot | QDir::Readable, QDirIterator::FollowSymlinks);
+	while (iter.hasNext())
+	{
+		QString subDir = iter.next();
+		QFileInfo dirInfo(subDir);
+		if (!QFileInfo(FS::PathCombine(subDir, "instance.cfg")).exists())
+			continue;
+		auto id = dirInfo.fileName();
+		out.append(id);
+		qDebug() << "Found instance ID" << id;
+	}
+	return out;
+}
+
+
+
 InstanceList::InstListError InstanceList::loadList()
 {
 	// load the instance groups
 	QMap<QString, QString> groupMap;
 	loadGroupList(groupMap);
 
-	QList<InstancePtr> tempList;
+	auto existingIds = getIdMapping(m_instances);
+
+	QList<InstancePtr> newList;
+
+	auto processIds = [&](QList<InstanceId> ids)
 	{
-		QDirIterator iter(m_instDir, QDir::Dirs | QDir::NoDot | QDir::NoDotDot | QDir::Readable,
-						  QDirIterator::FollowSymlinks);
-		while (iter.hasNext())
+		for(auto & id: ids)
 		{
-			QString subDir = iter.next();
-			if (!QFileInfo(FS::PathCombine(subDir, "instance.cfg")).exists())
-				continue;
-			qDebug() << "Loading MultiMC instance from " << subDir;
-			InstancePtr instPtr;
-			auto error = loadInstance(instPtr, subDir);
-			if(!continueProcessInstance(instPtr, error, subDir, groupMap))
-				continue;
-			tempList.append(instPtr);
+			if(existingIds.contains(id))
+			{
+				auto instPair = existingIds[id];
+				/*
+				auto & instPtr = instPair.first;
+				auto & instIdx = instPair.second;
+				*/
+				existingIds.remove(id);
+				qDebug() << "Should keep and soft-reload" << id;
+			}
+			else
+			{
+				auto subDir = FS::PathCombine(m_instDir, id);
+				InstancePtr instPtr;
+				auto error = loadInstance(instPtr, subDir);
+				if(!continueProcessInstance(instPtr, error, subDir, groupMap))
+					continue;
+				connect(instPtr.get(), &BaseInstance::propertiesChanged, this, &InstanceList::propertiesChanged);
+				connect(instPtr.get(), &BaseInstance::groupChanged, this, &InstanceList::groupChanged);
+				connect(instPtr.get(), &BaseInstance::nuked, this, &InstanceList::instanceNuked);
+				newList.append(instPtr);
+			}
 		}
-	}
+	};
+	processIds(discoverInstances(m_instDir));
 
 	// FIXME: generalize
-	FTBPlugin::loadInstances(m_globalSettings, groupMap, tempList);
+	// FTBPlugin::loadInstances(m_globalSettings, groupMap, newList);
 
-	beginResetModel();
-	m_instances.clear();
-	for(auto inst: tempList)
+	if(!existingIds.isEmpty())
 	{
-		connect(inst.get(), SIGNAL(propertiesChanged(BaseInstance *)), this,
-				SLOT(propertiesChanged(BaseInstance *)));
-		connect(inst.get(), SIGNAL(groupChanged()), this, SLOT(groupChanged()));
-		connect(inst.get(), SIGNAL(nuked(BaseInstance *)), this,
-				SLOT(instanceNuked(BaseInstance *)));
-		m_instances.append(inst);
+		// get the list of removed instances and sort it by their original index, from last to first
+		auto deadList = existingIds.values();
+		auto orderSortPredicate = [](const InstanceLocator & a, const InstanceLocator & b) -> bool
+		{
+			return a.second > b.second;
+		};
+		std::sort(deadList.begin(), deadList.end(), orderSortPredicate);
+		// remove the contiguous ranges of rows
+		int bookmark = -1;
+		int currentItem = -1;
+		auto removeNow = [&]()
+		{
+			beginRemoveRows(QModelIndex(), currentItem, bookmark);
+			qDebug() << "Removing instances" << currentItem << ".." << bookmark;
+			m_instances.erase(m_instances.begin() + currentItem, m_instances.begin() + bookmark + 1);
+			endRemoveRows();
+			bookmark = -1;
+		};
+		for(auto & removedItem: deadList)
+		{
+			auto instPtr = removedItem.first;
+			instPtr->invalidate();
+			currentItem = removedItem.second;
+			if(bookmark == -1)
+			{
+				bookmark = currentItem;
+				continue;
+			}
+			// contiguous?
+			if(currentItem == bookmark - 1)
+			{
+				continue;
+			}
+			else
+			{
+				removeNow();
+			}
+		}
+		if(bookmark != -1)
+		{
+			removeNow();
+		}
 	}
-	endResetModel();
-	emit dataIsInvalid();
+	if(newList.size())
+	{
+		beginInsertRows(QModelIndex(), m_instances.count(), m_instances.count() + newList.size() - 1);
+		m_instances.append(newList);
+		endInsertRows();
+	}
 	return NoError;
 }
 
