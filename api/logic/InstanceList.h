@@ -23,6 +23,7 @@
 
 #include "multimc_logic_export.h"
 
+class QFileSystemWatcher;
 class BaseInstance;
 class QDir;
 
@@ -103,9 +104,6 @@ public:
 	}
 	;
 
-	/// Clear all instances. Triggers notifications.
-	void clear();
-
 	/// Add an instance. Triggers notifications, returns the new index
 	int add(InstancePtr t);
 
@@ -170,14 +168,21 @@ private slots:
 	void propertiesChanged(BaseInstance *inst);
 	void instanceNuked(BaseInstance *inst);
 	void groupChanged();
+	void instanceDirContentsChanged(const QString &path);
 
 private:
 	int getInstIndex(BaseInstance *inst) const;
+	void suspendWatch();
+	void resumeWatch();
+	/// Clear all instances. Triggers notifications.
+	void clear();
 
 public:
 	static bool continueProcessInstance(InstancePtr instPtr, const int error, const QDir &dir, QMap<QString, QString> &groupMap);
 
 protected:
+	QFileSystemWatcher * m_watcher;
+	int m_watchLevel = 0;
 	QString m_instDir;
 	QList<InstancePtr> m_instances;
 	QSet<QString> m_groups;

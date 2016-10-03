@@ -24,6 +24,7 @@
 #include <QJsonArray>
 #include <QXmlStreamReader>
 #include <QRegularExpression>
+#include <QFileSystemWatcher>
 #include <QDebug>
 
 #include "InstanceList.h"
@@ -49,6 +50,9 @@ InstanceList::InstanceList(SettingsObjectPtr globalSettings, const QString &inst
 	{
 		QDir::current().mkpath(m_instDir);
 	}
+	m_watcher = new QFileSystemWatcher(this);
+	connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, &InstanceList::instanceDirContentsChanged);
+	resumeWatch();
 }
 
 InstanceList::~InstanceList()
@@ -168,6 +172,8 @@ void InstanceList::saveGroupList()
 		return;
 	}
 
+	suspendWatch();
+
 	QString groupFileName = m_instDir + "/instgroups.json";
 	QMap<QString, QSet<QString>> groupMap;
 	for (auto instance : m_instances)
@@ -219,6 +225,8 @@ void InstanceList::saveGroupList()
 	{
 		qCritical() << "Failed to write instance group file :" << e.cause();
 	}
+
+	resumeWatch();
 }
 
 void InstanceList::loadGroupList(QMap<QString, QString> &groupMap)
@@ -399,6 +407,7 @@ InstanceList::InstListError InstanceList::loadList()
 	// FIXME: generalize
 	// FTBPlugin::loadInstances(m_globalSettings, groupMap, newList);
 
+	// TODO: looks like a general algorithm with a few specifics inserted. Do something about it.
 	if(!existingIds.isEmpty())
 	{
 		// get the list of removed instances and sort it by their original index, from last to first
@@ -415,7 +424,6 @@ InstanceList::InstListError InstanceList::loadList()
 		auto removeNow = [&]()
 		{
 			beginRemoveRows(QModelIndex(), front_bookmark, back_bookmark);
-			qDebug() << "Removing instances" << front_bookmark << ".." << back_bookmark;
 			m_instances.erase(m_instances.begin() + front_bookmark, m_instances.begin() + back_bookmark + 1);
 			endRemoveRows();
 			front_bookmark = -1;
@@ -426,21 +434,17 @@ InstanceList::InstListError InstanceList::loadList()
 			auto instPtr = removedItem.first;
 			instPtr->invalidate();
 			currentItem = removedItem.second;
-			qDebug() << "Considering item" << currentItem << "for removal";
 			if(back_bookmark == -1)
 			{
 				// no bookmark yet
-				qDebug() << "Item" << currentItem << "first in sequence";
 				back_bookmark = currentItem;
 			}
 			else if(currentItem == front_bookmark - 1)
 			{
 				// part of contiguous sequence, continue
-				qDebug() << "Item" << currentItem << "in sequence";
 			}
 			else
 			{
-				qDebug() << "Seam between" << currentItem << "and" << front_bookmark;
 				// seam between previous and current item
 				removeNow();
 			}
@@ -470,10 +474,45 @@ void InstanceList::clear()
 	emit dataIsInvalid();
 }
 
+void InstanceList::resumeWatch()
+{
+	if(m_watchLevel > 0)
+	{
+		qWarning() << "Bad suspend level resume in instance list";
+		return;
+	}
+	m_watchLevel++;
+	if(m_watchLevel > 0)
+	{
+		m_watcher->addPath(m_instDir);
+	}
+}
+
+void InstanceList::suspendWatch()
+{
+	if(m_watchLevel == 0)
+	{
+		m_watcher->removePath(m_instDir);
+	}
+	m_watchLevel --;
+}
+
+void InstanceList::instanceDirContentsChanged(const QString&)
+{
+	loadList();
+}
+
 void InstanceList::on_InstFolderChanged(const Setting &setting, QVariant value)
 {
-	m_instDir = value.toString();
-	loadList();
+	QString newInstDir = value.toString();
+	if(newInstDir != m_instDir)
+	{
+		suspendWatch();
+		m_instDir = newInstDir;
+		clear();
+		loadList();
+		resumeWatch();
+	}
 }
 
 /// Add an instance. Triggers notifications, returns the new index
