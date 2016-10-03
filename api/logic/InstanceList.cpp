@@ -409,37 +409,44 @@ InstanceList::InstListError InstanceList::loadList()
 		};
 		std::sort(deadList.begin(), deadList.end(), orderSortPredicate);
 		// remove the contiguous ranges of rows
-		int bookmark = -1;
+		int front_bookmark = -1;
+		int back_bookmark = -1;
 		int currentItem = -1;
 		auto removeNow = [&]()
 		{
-			beginRemoveRows(QModelIndex(), currentItem, bookmark);
-			qDebug() << "Removing instances" << currentItem << ".." << bookmark;
-			m_instances.erase(m_instances.begin() + currentItem, m_instances.begin() + bookmark + 1);
+			beginRemoveRows(QModelIndex(), front_bookmark, back_bookmark);
+			qDebug() << "Removing instances" << front_bookmark << ".." << back_bookmark;
+			m_instances.erase(m_instances.begin() + front_bookmark, m_instances.begin() + back_bookmark + 1);
 			endRemoveRows();
-			bookmark = -1;
+			front_bookmark = -1;
+			back_bookmark = currentItem;
 		};
 		for(auto & removedItem: deadList)
 		{
 			auto instPtr = removedItem.first;
 			instPtr->invalidate();
 			currentItem = removedItem.second;
-			if(bookmark == -1)
+			qDebug() << "Considering item" << currentItem << "for removal";
+			if(back_bookmark == -1)
 			{
-				bookmark = currentItem;
-				continue;
+				// no bookmark yet
+				qDebug() << "Item" << currentItem << "first in sequence";
+				back_bookmark = currentItem;
 			}
-			// contiguous?
-			if(currentItem == bookmark - 1)
+			else if(currentItem == front_bookmark - 1)
 			{
-				continue;
+				// part of contiguous sequence, continue
+				qDebug() << "Item" << currentItem << "in sequence";
 			}
 			else
 			{
+				qDebug() << "Seam between" << currentItem << "and" << front_bookmark;
+				// seam between previous and current item
 				removeNow();
 			}
+			front_bookmark = currentItem;
 		}
-		if(bookmark != -1)
+		if(back_bookmark != -1)
 		{
 			removeNow();
 		}
