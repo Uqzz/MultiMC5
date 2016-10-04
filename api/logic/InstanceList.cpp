@@ -355,6 +355,17 @@ static QList<InstanceId> discoverInstances(QString instDir)
 		QFileInfo dirInfo(subDir);
 		if (!QFileInfo(FS::PathCombine(subDir, "instance.cfg")).exists())
 			continue;
+		// if it is a symlink, ignore it if it goes to the instance folder
+		if(dirInfo.isSymLink())
+		{
+			QFileInfo targetInfo(dirInfo.symLinkTarget());
+			QFileInfo instDirInfo(instDir);
+			if(targetInfo.canonicalPath() == instDirInfo.canonicalFilePath())
+			{
+				qDebug() << "Ignoring symlink" << subDir << "that leads into the instances folder";
+				continue;
+			}
+		}
 		auto id = dirInfo.fileName();
 		out.append(id);
 		qDebug() << "Found instance ID" << id;
