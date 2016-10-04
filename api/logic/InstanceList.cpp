@@ -334,7 +334,6 @@ static QMap<InstanceId, InstanceLocator> getIdMapping(const QList<InstancePtr> &
 		if(out.contains(id))
 		{
 			qWarning() << "Duplicate ID" << id << "in instance list";
-			throw 0;
 		}
 		out[id] = std::make_pair(item, i);
 		i++;
