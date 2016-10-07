@@ -135,6 +135,7 @@ QSet<FTBRecord> discoverFTBInstances(SettingsObjectPtr globalSettings)
 
 InstancePtr loadInstance(SettingsObjectPtr globalSettings, QMap<QString, QString> &groupMap, const FTBRecord & record)
 {
+	Q_UNUSED(groupMap);
 	InstancePtr inst;
 
 	auto m_settings = std::make_shared<INISettingsObject>(FS::PathCombine(record.instanceDir, "instance.cfg"));
@@ -174,12 +175,7 @@ InstancePtr loadInstance(SettingsObjectPtr globalSettings, QMap<QString, QString
 	{
 		inst->setIntendedVersionId(record.mcVersion);
 	}
-	qDebug() << "Post-Process " << record.instanceDir;
-	if (!InstanceList::continueProcessInstance(inst, InstanceList::NoCreateError, record.instanceDir, groupMap))
-	{
-		return nullptr;
-	}
-	qDebug() << "Final " << record.instanceDir;
+	qDebug() << "Loaded instance " << inst->name() << " from " << inst->instanceRoot();
 	return inst;
 }
 
@@ -228,11 +224,6 @@ InstancePtr createInstance(SettingsObjectPtr globalSettings, QMap<QString, QStri
 		inst->setName(record.name);
 		inst->setIconKey(record.iconKey);
 		inst->setNotes(record.description);
-		qDebug() << "Post-Process " << record.instanceDir;
-		if (!InstanceList::continueProcessInstance(inst, InstanceList::NoCreateError, record.instanceDir, groupMap))
-		{
-			return nullptr;
-		}
 	}
 	return inst;
 }

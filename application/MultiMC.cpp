@@ -254,7 +254,7 @@ MultiMC::MultiMC(int &argc, char **argv, bool test_mode) : QApplication(argc, ar
 	}
 	m_instances.reset(new InstanceList(m_settings, InstDirSetting->get().toString(), this));
 	qDebug() << "Loading Instances...";
-	m_instances->loadList();
+	m_instances->loadList(true);
 	connect(InstDirSetting.get(), SIGNAL(SettingChanged(const Setting &, QVariant)),
 			m_instances.get(), SLOT(on_InstFolderChanged(const Setting &, QVariant)));
 
@@ -957,7 +957,7 @@ void MultiMC::onExit()
 {
 	if(m_instances)
 	{
-		m_instances->saveGroupList();
+		// m_instances->saveGroupList();
 	}
 	ENV.destroy();
 	if(logFile)

@@ -20,8 +20,11 @@
 #include <QSet>
 
 #include "BaseInstance.h"
+#include "BaseInstanceProvider.h"
 
 #include "multimc_logic_export.h"
+
+#include "QObjectPtr.h"
 
 class QFileSystemWatcher;
 class BaseInstance;
@@ -30,13 +33,6 @@ class QDir;
 class MULTIMC_LOGIC_EXPORT InstanceList : public QAbstractListModel
 {
 	Q_OBJECT
-private:
-	void loadGroupList(QMap<QString, QString> &groupList);
-	void suspendGroupSaving();
-	void resumeGroupSaving();
-
-public slots:
-	void saveGroupList();
 
 public:
 	explicit InstanceList(SettingsObjectPtr globalSettings, const QString &instDir, QObject *parent = 0);
@@ -81,38 +77,23 @@ public:
 		CantCreateDir
 	};
 
-	QString instDir() const
-	{
-		return m_instDir;
-	}
-
-	/*!
-	 * \brief Get the instance at index
-	 */
 	InstancePtr at(int i) const
 	{
 		return m_instances.at(i);
 	}
-	;
 
-	/*!
-	 * \brief Get the count of loaded instances
-	 */
 	int count() const
 	{
 		return m_instances.count();
 	}
-	;
+
+	InstListError loadList(bool complete = false);
 
 	/// Add an instance. Triggers notifications, returns the new index
 	int add(InstancePtr t);
 
-	/// Get an instance by ID
 	InstancePtr getInstanceById(QString id) const;
-
 	QModelIndex getInstanceIndexById(const QString &id) const;
-
-	// FIXME: instead of iterating through all instances and forming a set, keep the set around
 	QStringList getGroups();
 
 	void deleteGroup(const QString & name);
@@ -127,8 +108,7 @@ public:
 	 * - InstExists if the given instance directory is already an instance.
 	 * - CantCreateDir if the given instance directory cannot be created.
 	 */
-	InstCreateError createInstance(InstancePtr &inst, BaseVersionPtr version,
-								   const QString &instDir);
+	InstCreateError createInstance(InstancePtr &inst, BaseVersionPtr version, const QString &instDir);
 
 	/*!
 	 * \brief Creates a copy of an existing instance with a new name
@@ -140,53 +120,28 @@ public:
 	 * - InstExists if the given instance directory is already an instance.
 	 * - CantCreateDir if the given instance directory cannot be created.
 	 */
-	InstCreateError copyInstance(InstancePtr &newInstance, InstancePtr &oldInstance,
-								 const QString &instDir, bool copySaves);
-
-	/*!
-	 * \brief Loads an instance from the given directory.
-	 * Checks the instance's INI file to figure out what the instance's type is first.
-	 * \param inst Pointer to store the loaded instance in.
-	 * \param instDir The instance's directory.
-	 * \return An InstLoadError error code.
-	 * - NotAnInstance if the given instance directory isn't a valid instance.
-	 */
-	InstLoadError loadInstance(InstancePtr &inst, const QString &instDir);
+	InstCreateError copyInstance(InstancePtr &newInstance, InstancePtr &oldInstance, const QString &instDir, bool copySaves);
 
 signals:
 	void dataIsInvalid();
 
-public slots:
-	void on_InstFolderChanged(const Setting &setting, QVariant value);
-
-	/*!
-	 * \brief Loads the instance list. Triggers notifications.
-	 */
-	InstListError loadList();
-
 private slots:
 	void propertiesChanged(BaseInstance *inst);
 	void instanceNuked(BaseInstance *inst);
-	void groupChanged();
-	void instanceDirContentsChanged(const QString &path);
+	void groupsPublished(QSet<QString>);
+	void providerUpdated();
 
 private:
 	int getInstIndex(BaseInstance *inst) const;
 	void suspendWatch();
 	void resumeWatch();
-	/// Clear all instances. Triggers notifications.
-	void clear();
-
-public:
-	static bool continueProcessInstance(InstancePtr instPtr, const int error, const QDir &dir, QMap<QString, QString> &groupMap);
 
 protected:
-	QFileSystemWatcher * m_watcher;
 	int m_watchLevel = 0;
+	QSet<BaseInstanceProvider *> m_updatedProviders;
 	QString m_instDir;
 	QList<InstancePtr> m_instances;
 	QSet<QString> m_groups;
 	SettingsObjectPtr m_globalSettings;
-	bool suspendedGroupSave = false;
-	bool queuedGroupSave = false;
+	QSet<shared_qobject_ptr<BaseInstanceProvider>> m_providers;
 };

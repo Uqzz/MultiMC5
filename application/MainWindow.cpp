@@ -1030,6 +1030,7 @@ void MainWindow::waitForMinecraftVersions()
 
 InstancePtr MainWindow::instanceFromZipPack(QString instName, QString instGroup, QString instIcon, QUrl url)
 {
+	/*
 	InstancePtr newInstance;
 
 	QString instancesDir = MMC->settings()->get("InstanceDir").toString();
@@ -1125,6 +1126,8 @@ InstancePtr MainWindow::instanceFromZipPack(QString instName, QString instGroup,
 
 	finalizeInstance(newInstance);
 	return newInstance;
+	*/
+	return nullptr;
 }
 
 InstancePtr MainWindow::instanceFromVersion(QString instName, QString instGroup, QString instIcon, BaseVersionPtr version)
@@ -1166,7 +1169,7 @@ InstancePtr MainWindow::instanceFromVersion(QString instName, QString instGroup,
 	newInstance->setIconKey(instIcon);
 	newInstance->setGroupInitial(instGroup);
 	MMC->instances()->add(InstancePtr(newInstance));
-	MMC->instances()->saveGroupList();
+	// MMC->instances()->saveGroupList();
 	finalizeInstance(newInstance);
 	return newInstance;
 }
@@ -1386,7 +1389,7 @@ void MainWindow::on_actionViewInstanceFolder_triggered()
 
 void MainWindow::on_actionRefresh_triggered()
 {
-	MMC->instances()->loadList();
+	MMC->instances()->loadList(true);
 }
 
 void MainWindow::on_actionViewCentralModsFolder_triggered()

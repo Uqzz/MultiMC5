@@ -12,6 +12,9 @@ set(CORE_SOURCES
 	InstanceHandle.cpp
 	InstanceList.h
 	InstanceList.cpp
+	BaseInstanceProvider.h
+	FolderInstanceProvider.h
+	FolderInstanceProvider.cpp
 	BaseVersion.h
 	BaseInstance.h
 	BaseInstance.cpp
