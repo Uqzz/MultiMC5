@@ -221,6 +221,10 @@ InstanceList::InstListError InstanceList::loadList(bool complete)
 		for(auto & removedItem: deadList)
 		{
 			auto instPtr = removedItem.first;
+			if(!complete && !m_updatedProviders.contains(instPtr->provider()))
+			{
+				continue;
+			}
 			instPtr->invalidate();
 			currentItem = removedItem.second;
 			if(back_bookmark == -1)

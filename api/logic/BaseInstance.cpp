@@ -17,6 +17,7 @@
 
 #include <QFileInfo>
 #include <QDir>
+#include <QDebug>
 
 #include "settings/INISettingsObject.h"
 #include "settings/Setting.h"
@@ -283,4 +284,20 @@ QStringList BaseInstance::extraArguments() const
 std::shared_ptr<LaunchTask> BaseInstance::getLaunchTask()
 {
 	return m_launchProcess;
+}
+
+void BaseInstance::setProvider(BaseInstanceProvider* provider)
+{
+	// only once.
+	assert(!m_provider);
+	if(m_provider)
+	{
+		qWarning() << "Provider set more than once for instance" << id();
+	}
+	m_provider = provider;
+}
+
+BaseInstanceProvider* BaseInstance::provider() const
+{
+	return m_provider;
 }

@@ -14,6 +14,7 @@
  */
 
 #pragma once
+#include <cassert>
 
 #include <QObject>
 #include "QObjectPtr.h"
@@ -35,6 +36,7 @@ class QDir;
 class Task;
 class LaunchTask;
 class BaseInstance;
+class BaseInstanceProvider;
 
 // pointer for lazy people
 typedef std::shared_ptr<BaseInstance> InstancePtr;
@@ -82,6 +84,9 @@ public:
 	bool isRunning() const;
 	int64_t totalTimePlayed() const;
 	void resetTimePlayed();
+
+	void setProvider(BaseInstanceProvider * provider);
+	BaseInstanceProvider * provider() const;
 
 	/// get the type of this instance
 	QString instanceType() const;
@@ -258,6 +263,7 @@ protected:
 	bool m_isRunning = false;
 	std::shared_ptr<LaunchTask> m_launchProcess;
 	QDateTime m_timeStarted;
+	BaseInstanceProvider * m_provider = nullptr;
 };
 
 Q_DECLARE_METATYPE(std::shared_ptr<BaseInstance>)

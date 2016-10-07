@@ -97,6 +97,7 @@ InstancePtr FolderInstanceProvider::loadInstance(const InstanceId& id)
 		inst.reset(new NullInstance(m_globalSettings, instanceSettings, instanceRoot));
 	}
 	inst->init();
+	inst->setProvider(this);
 	auto iter = groupMap.find(id);
 	if (iter != groupMap.end())
 	{
